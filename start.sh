@@ -7,7 +7,7 @@ echo "🚀 Starting LLM ETL Frontend Application..."
 # Check if Python virtual environment exists
 if [ ! -d ".venv" ]; then
     echo "📦 Creating Python virtual environment..."
-    python3 -m venv .venv
+    uv venv
 fi
 
 # Activate virtual environment
@@ -15,8 +15,10 @@ echo "🔧 Activating virtual environment..."
 source .venv/bin/activate
 
 # Install Python dependencies
-# echo "📦 Installing Python dependencies..."
-# uv add -r requirements.txt
+echo "📦 Installing Python dependencies..."
+uv sync
+
+
 
 # Check if .env file exists
 if [ ! -f ".env" ]; then
@@ -35,12 +37,12 @@ echo "⏳ Waiting for backend to start..."
 sleep 5
 
 # Install frontend dependencies if not already installed
-if [ ! -d "frontend/node_modules" ]; then
-    echo "📦 Installing frontend dependencies..."
-    cd frontend
+echo "📦 Installing frontend dependencies..."
+cd frontend
+if [ ! -d "node_modules" ] || [ ! -f "node_modules/.package-lock.json" ]; then
     npm install
-    cd ..
 fi
+cd ..
 
 # Start frontend
 echo "🎨 Starting frontend..."
