@@ -1,0 +1,18 @@
+[project]
+name = "llm-etl-fontend"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "aiofiles>=24.1.0",
+    "boto3>=1.38.21",
+    "fastapi>=0.115.12",
+    "pandas>=2.2.3",
+    "passlib[bcrypt]>=1.7.4",
+    "python-dotenv>=1.1.0",
+    "python-jose[cryptography]>=3.5.0",
+    "python-multipart>=0.0.20",
+    "snowflake-connector-python>=3.16.0",
+    "uvicorn>=0.34.2",
+]

@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+python-multipart
+boto3
+python-dotenv
+snowflake-connector-python
+pandas
+aiofiles
+python-jose[cryptography]
+passlib[bcrypt]
