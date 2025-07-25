@@ -20,7 +20,8 @@ import {
   Send,
   FileCopy,
   Download,
-  Storage
+  Storage,
+  Clear
 } from '@mui/icons-material';
 import { useDropzone } from 'react-dropzone';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -136,6 +137,9 @@ const App: React.FC = () => {
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Check if chat has started (more than just the initial welcome message)
+  const isChatStarted = messages.length > 1;
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -280,6 +284,19 @@ const App: React.FC = () => {
     URL.revokeObjectURL(url);
   };
 
+  const clearChat = () => {
+    setMessages([
+      {
+        id: '1',
+        type: 'assistant',
+        content: 'Hello! I can help you upload files to S3 and generate ETL code for Snowflake ingestion. Please upload a file and describe what you\'d like to do with it.',
+        timestamp: new Date()
+      }
+    ]);
+    setCurrentFile(null);
+    setError(null);
+  };
+
   return (
     <Container maxWidth="xl" sx={{ py: 3 }}>
       <Paper 
@@ -296,11 +313,12 @@ const App: React.FC = () => {
       >
         {/* Header */}
         <Box sx={{ 
-          p: 3, 
+          p: isChatStarted ? 2 : 3, 
           background: 'linear-gradient(135deg, #00bcd4 0%, #00838f 100%)',
           color: 'white',
           position: 'relative',
           overflow: 'hidden',
+          transition: 'padding 0.3s ease-in-out',
           '&::before': {
             content: '""',
             position: 'absolute',
@@ -312,12 +330,47 @@ const App: React.FC = () => {
             backgroundImage: 'radial-gradient(circle at 20% 50%, rgba(0, 229, 255, 0.2) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(0, 229, 255, 0.15) 0%, transparent 50%)',
           }
         }}>
-          <Typography variant="h4" component="h1" gutterBottom sx={{ position: 'relative', zIndex: 1, fontWeight: 600 }}>
-            LLM ETL Chat Application
-          </Typography>
-          <Typography variant="subtitle1" sx={{ position: 'relative', zIndex: 1, opacity: 0.9 }}>
-            Upload files to S3 and generate ETL code for Snowflake ingestion
-          </Typography>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <Box>
+              <Typography 
+                variant={isChatStarted ? "h5" : "h4"} 
+                component="h1" 
+                gutterBottom={!isChatStarted} 
+                sx={{ 
+                  position: 'relative', 
+                  zIndex: 1, 
+                  fontWeight: 600,
+                  transition: 'font-size 0.3s ease-in-out',
+                  mb: isChatStarted ? 0 : 1
+                }}
+              >
+                LLM ETL Chat Application
+              </Typography>
+              {!isChatStarted && (
+                <Typography variant="subtitle1" sx={{ position: 'relative', zIndex: 1, opacity: 0.9 }}>
+                  Upload files to S3 and generate ETL code for Snowflake ingestion
+                </Typography>
+              )}
+            </Box>
+            <Tooltip title="Clear chat history">
+              <IconButton
+                onClick={clearChat}
+                sx={{
+                  position: 'relative',
+                  zIndex: 1,
+                  color: 'white',
+                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                  '&:hover': {
+                    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                    transform: 'scale(1.05)',
+                  },
+                  transition: 'all 0.2s ease-in-out',
+                }}
+              >
+                <Clear />
+              </IconButton>
+            </Tooltip>
+          </Box>
         </Box>
 
         {/* File Upload Status */}
