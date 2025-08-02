@@ -2,6 +2,7 @@ fastapi
 uvicorn
 python-multipart
 boto3
+requests
 python-dotenv
 snowflake-connector-python
 pandas

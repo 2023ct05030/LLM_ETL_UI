@@ -13,6 +13,7 @@ dependencies = [
     "python-dotenv>=1.1.0",
     "python-jose[cryptography]>=3.5.0",
     "python-multipart>=0.0.20",
+    "requests>=2.32.4",
     "snowflake-connector-python>=3.16.0",
     "uvicorn>=0.34.2",
 ]

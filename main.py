@@ -284,7 +284,86 @@ async def read_root():
                     if (response.ok) {
                         currentFileInfo = await response.json();
                         addMessage('user', `File uploaded: ${file.name}`);
-                        addMessage('bot', `File successfully uploaded to S3: ${currentFileInfo.s3_url}`);
+                        
+                        let uploadMessage = `File successfully uploaded to S3: ${currentFileInfo.s3_url}`;
+                        
+                        // Display data profiling results if available
+                        if (currentFileInfo.data_profiling && currentFileInfo.data_profiling.success) {
+                            uploadMessage += `\n\n📊 **Data Profile Analysis:**`;
+                            
+                            const profiling = currentFileInfo.data_profiling;
+                            const datasetInfo = profiling.dataset_info || {};
+                            const dataQuality = profiling.data_quality || {};
+                            
+                            // Basic dataset info
+                            uploadMessage += `\n• Dataset: ${datasetInfo.rows || 'N/A'} rows × ${datasetInfo.columns || 'N/A'} columns`;
+                            
+                            // Data quality
+                            if (dataQuality.summary) {
+                                const completeness = dataQuality.summary.overall_completeness || 0;
+                                const qualityIcon = completeness >= 95 ? "🟢" : completeness >= 80 ? "🟡" : "🔴";
+                                uploadMessage += `\n• ${qualityIcon} Data Quality: ${completeness.toFixed(1)}% complete (${dataQuality.summary.data_size_mb || 'N/A'} MB)`;
+                            }
+                            
+                            // Primary keys
+                            if (profiling.primary_key_candidates && profiling.primary_key_candidates.length > 0) {
+                                const pkList = profiling.primary_key_candidates.map(pk => {
+                                    const column = pk.column || pk;
+                                    const confidence = pk.confidence || 'unknown';
+                                    const icon = confidence === 'high' ? '🔑' : '🗝️';
+                                    return `${icon} ${column}`;
+                                }).join(', ');
+                                uploadMessage += `\n• Primary Key Candidates: ${pkList}`;
+                            }
+                            
+                            // Date columns
+                            if (profiling.date_columns && profiling.date_columns.length > 0) {
+                                const dateList = profiling.date_columns.map(dc => {
+                                    const column = dc.column || dc;
+                                    const confidence = dc.confidence || 'unknown';
+                                    const icon = confidence === 'high' ? '📅' : '📆';
+                                    return `${icon} ${column}`;
+                                }).join(', ');
+                                uploadMessage += `\n• Date/Time Columns: ${dateList}`;
+                            }
+                            
+                            // Data quality issues
+                            if (dataQuality.completeness) {
+                                const issues = [];
+                                const warnings = [];
+                                
+                                Object.entries(dataQuality.completeness).forEach(([col, info]) => {
+                                    if (info.status === 'poor') {
+                                        issues.push(`🔴 ${col} (${info.null_percentage}% nulls)`);
+                                    } else if (info.status === 'warning') {
+                                        warnings.push(`🟡 ${col} (${info.null_percentage}% nulls)`);
+                                    }
+                                });
+                                
+                                if (issues.length > 0) {
+                                    uploadMessage += `\n• Data Quality Issues: ${issues.join(', ')}`;
+                                } else if (warnings.length > 0) {
+                                    uploadMessage += `\n• Data Quality Warnings: ${warnings.join(', ')}`;
+                                }
+                            }
+                            
+                            // Schema info
+                            if (profiling.schema_recommendations && profiling.schema_recommendations.columns) {
+                                uploadMessage += `\n• ✅ Schema Ready: ${profiling.schema_recommendations.columns.length} columns mapped to Snowflake types`;
+                            }
+                            
+                            uploadMessage += `\n\n🤖 **AI Insights:**`;
+                            if (profiling.llm_insights) {
+                                uploadMessage += `\n${profiling.llm_insights.substring(0, 300)}${profiling.llm_insights.length > 300 ? '...' : ''}`;
+                            }
+                            
+                            uploadMessage += `\n\n💡 **Ready for ETL Code Generation!** \nDescribe your requirements and I'll generate optimized code based on this analysis.`;
+                        } else if (currentFileInfo.data_profiling && !currentFileInfo.data_profiling.success) {
+                            uploadMessage += `\n\n⚠️ Data profiling encountered an issue: ${currentFileInfo.data_profiling.error}`;
+                            uploadMessage += `\nETL code generation will still work with basic file information.`;
+                        }
+                        
+                        addMessage('bot', uploadMessage);
                     } else {
                         throw new Error('Upload failed');
                     }
@@ -361,7 +440,7 @@ async def read_root():
 
 @app.post("/upload")
 async def upload_file(file: UploadFile = File(...)):
-    """Upload file to S3"""
+    """Upload file to S3 and perform data profiling"""
     try:
         if not file.filename:
             raise HTTPException(status_code=400, detail="No file provided")
@@ -369,7 +448,25 @@ async def upload_file(file: UploadFile = File(...)):
         if not file.filename.strip():
             raise HTTPException(status_code=400, detail="Invalid filename")
         
+        # Upload to S3
         file_info = await upload_to_s3(file)
+        
+        # Perform data profiling for CSV files
+        if file.filename.lower().endswith('.csv'):
+            try:
+                llm_generator = LLMCodeGenerator()
+                profiling_result = llm_generator.profile_data_from_s3(
+                    s3_url=file_info["s3_url"], 
+                    bucket_name=Config.S3_BUCKET_NAME
+                )
+                file_info["data_profiling"] = profiling_result
+            except Exception as e:
+                print(f"Data profiling error: {str(e)}")
+                file_info["data_profiling"] = {
+                    "success": False,
+                    "error": f"Data profiling failed: {str(e)}"
+                }
+        
         return JSONResponse(content=file_info)
         
     except HTTPException:
@@ -380,19 +477,68 @@ async def upload_file(file: UploadFile = File(...)):
 
 @app.post("/chat", response_model=ChatResponse)
 async def chat(message: ChatMessage):
-    """Handle chat messages and generate ETL code"""
+    """Handle chat messages and generate ETL code with data profiling insights"""
     try:
         if message.file_url:
-            # Generate ETL code for the uploaded file
+            # Generate ETL code for the uploaded file with profiling data
             file_info = {
                 "s3_url": message.file_url,
                 "original_filename": message.file_name or "unknown.csv",
                 "content_type": "application/octet-stream"
             }
             
-            etl_code = generate_etl_code(file_info, message.message)
+            # Get data profiling insights if available
+            profiling_data = None
+            if message.file_name and message.file_name.lower().endswith('.csv'):
+                try:
+                    llm_generator = LLMCodeGenerator()
+                    profiling_data = llm_generator.profile_data_from_s3(
+                        s3_url=message.file_url, 
+                        bucket_name=Config.S3_BUCKET_NAME
+                    )
+                except Exception as e:
+                    print(f"Error getting profiling data for chat: {str(e)}")
             
-            response_text = f"I've generated ETL code to ingest your file ({message.file_name}) into Snowflake. The code includes:\n\n1. S3 file reading\n2. Data processing\n3. Snowflake table creation\n4. Data loading\n5. Error handling\n\nPlease review the generated code below:"
+            # Generate enhanced ETL code with profiling insights
+            enhanced_requirements = message.message
+            if profiling_data and profiling_data.get("success"):
+                etl_code = llm_generator.generate_enhanced_etl_code(file_info, enhanced_requirements, profiling_data)
+            else:
+                etl_code = generate_etl_code(file_info, enhanced_requirements)
+            
+            response_parts = [
+                f"I've analyzed your file ({message.file_name}) and generated comprehensive ETL code for Snowflake ingestion."
+            ]
+            
+            if profiling_data and profiling_data.get("success"):
+                dataset_info = profiling_data.get("dataset_info", {})
+                response_parts.extend([
+                    f"\n📊 **Data Profile Summary:**",
+                    f"- Rows: {dataset_info.get('rows', 'N/A')}",
+                    f"- Columns: {dataset_info.get('columns', 'N/A')}",
+                    f"- Data Quality: {profiling_data.get('data_quality', {}).get('summary', {}).get('overall_completeness', 'N/A')}% complete"
+                ])
+                
+                if profiling_data.get("primary_key_candidates"):
+                    pk_candidates = [pk["column"] for pk in profiling_data["primary_key_candidates"]]
+                    response_parts.append(f"- Primary Key Candidates: {', '.join(pk_candidates)}")
+                
+                if profiling_data.get("date_columns"):
+                    date_cols = [dc["column"] for dc in profiling_data["date_columns"]]
+                    response_parts.append(f"- Date/Time Columns: {', '.join(date_cols)}")
+            
+            response_parts.extend([
+                f"\n🔧 **Generated ETL Features:**",
+                "1. S3 file reading with error handling",
+                "2. Data type inference and validation", 
+                "3. Optimized Snowflake table creation",
+                "4. Efficient data loading strategy",
+                "5. Data quality checks and monitoring",
+                "6. Comprehensive error handling and logging",
+                "\nPlease review the generated code below:"
+            ])
+            
+            response_text = "\n".join(response_parts)
             
             return ChatResponse(
                 response=response_text,
@@ -421,6 +567,28 @@ async def chat(message: ChatMessage):
             )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Chat processing failed: {str(e)}")
+
+@app.post("/profile-data")
+async def profile_data(request: dict):
+    """Standalone data profiling endpoint"""
+    try:
+        s3_url = request.get("s3_url")
+        if not s3_url:
+            raise HTTPException(status_code=400, detail="S3 URL is required")
+        
+        llm_generator = LLMCodeGenerator()
+        profiling_result = llm_generator.profile_data_from_s3(
+            s3_url=s3_url, 
+            bucket_name=Config.S3_BUCKET_NAME
+        )
+        
+        return JSONResponse(content=profiling_result)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Data profiling endpoint error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Data profiling failed: {str(e)}")
 
 @app.get("/health")
 async def health_check():

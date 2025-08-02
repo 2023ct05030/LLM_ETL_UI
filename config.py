@@ -15,6 +15,9 @@ class Config:
     BEDROCK_REGION: str = os.getenv('BEDROCK_REGION', AWS_REGION)
     NOVA_MODEL_ID: str = os.getenv('NOVA_MODEL_ID', 'amazon.nova-micro-v1:0')
     
+    # Ngrok Configuration for LLM API
+    NGROK_URL: Optional[str] = os.getenv('NGROK_URL', 'https://9ba3d7e4331c.ngrok-free.app')
+    
     # Snowflake Configuration
     SNOWFLAKE_ACCOUNT: Optional[str] = os.getenv('SNOWFLAKE_ACCOUNT')
     SNOWFLAKE_USER: Optional[str] = os.getenv('SNOWFLAKE_USER')
