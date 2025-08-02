@@ -9,3 +9,6 @@ pandas
 aiofiles
 python-jose[cryptography]
 passlib[bcrypt]
+langchain
+langchain-core
+langgraph

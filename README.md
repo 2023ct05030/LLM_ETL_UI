@@ -1,27 +1,43 @@
 # LLM ETL Frontend
 
-A modern web application that combines LLM-powered chat with ETL code generation for seamless data ingestion from S3 to Snowflake.
+A modern web application that combines LLM-powered chat with ETL code generation for seamless data ingestion from S3 to Snowflake, featuring automated LangGraph workflows.
 
 ## Features
 
 🚀 **File Upload to S3**: Drag-and-drop interface for uploading CSV, JSON, Excel, and Parquet files  
 🤖 **AWS Nova Micro LLM**: Generate production-ready ETL Python code using AWS Bedrock Nova Micro model  
-❄️ **Snowflake Integration**: Automated table creation and data loading  
+🔄 **LangGraph Workflows**: Automated end-to-end ETL execution with data profiling  
+❄️ **Snowflake Integration**: Automated table creation and data loading with validation  
 💬 **Interactive Chat Interface**: Natural language interaction for ETL requirements  
 📊 **Data Analysis**: Intelligent recommendations for data validation and transformations  
 🎨 **Modern UI**: React + Material-UI for a professional user experience  
+⚡ **Auto-Execution**: Generate, save, run, and validate ETL scripts automatically  
+
+## New: LangGraph ETL Workflow
+
+🔥 **Complete Automation**: The new LangGraph workflow provides end-to-end ETL automation:
+
+1. **Data Profiling** - Automatically analyzes uploaded data for insights
+2. **Script Generation** - Creates optimized Python ETL scripts with LLM
+3. **Auto-Execution** - Runs generated scripts with proper configuration
+4. **Snowflake Ingestion** - Loads data and validates results
+5. **Comprehensive Reporting** - Provides detailed execution status and metrics
+
+See [LANGGRAPH_WORKFLOW_README.md](./LANGGRAPH_WORKFLOW_README.md) for detailed documentation.
 
 ## Architecture
 
 ### Backend (FastAPI)
 - **File Upload**: Secure S3 upload with UUID-based naming
 - **AWS Bedrock Integration**: Nova Micro model for intelligent code generation
-- **Snowflake Connector**: Direct database operations
+- **LangGraph Orchestration**: Multi-step workflow automation
+- **Snowflake Connector**: Direct database operations with validation
 - **RESTful API**: Clean endpoints for frontend communication
 
 ### Frontend (React + TypeScript)
 - **Drag & Drop**: Intuitive file upload with react-dropzone
 - **Chat Interface**: Real-time messaging with code highlighting
+- **Workflow Controls**: Run complete ETL workflows with one click
 - **Material-UI**: Professional component library
 - **Code Display**: Syntax highlighting with copy/download features
 
@@ -105,19 +121,44 @@ SNOWFLAKE_SCHEMA=your_schema
 
 ## Usage
 
+### Standard Workflow
 1. **Access the application**: http://localhost:3000
 2. **Upload a file**: Drag and drop or click to select a file
 3. **Describe requirements**: Use natural language to specify your ETL needs
 4. **Generate code**: The LLM will create custom Python ETL code
 5. **Execute**: Copy or download the generated code for execution
 
+### LangGraph Automated Workflow (NEW)
+1. **Upload a file**: Same as above
+2. **Describe requirements**: Specify your ETL needs in natural language
+3. **Click "Run Workflow"**: Triggers the complete automated process
+4. **Monitor progress**: View real-time execution status
+5. **Review results**: Get comprehensive execution report and Snowflake validation
+
+The automated workflow will:
+- ✅ Profile your data automatically
+- ✅ Generate optimized ETL script
+- ✅ Execute the script safely
+- ✅ Load data to Snowflake
+- ✅ Validate ingestion results
+- ✅ Provide detailed reporting
+
 ## API Endpoints
 
+### Core Endpoints
 - `GET /` - Main application interface
 - `POST /upload` - File upload to S3
 - `POST /chat` - Chat with LLM for code generation
 - `GET /health` - Health check
 - `GET /docs` - API documentation (Swagger UI)
+
+### LangGraph Workflow Endpoints (NEW)
+- `POST /etl-workflow` - Run complete automated ETL workflow
+- `GET /workflow-status/{workflow_id}` - Get workflow execution status
+- `GET /workflows` - List all executed workflows with status
+
+### Data Analysis Endpoints
+- `POST /profile-data` - Get data profiling insights for uploaded files
 
 ## Supported File Types
 

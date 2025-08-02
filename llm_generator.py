@@ -76,7 +76,10 @@ class LLMCodeGenerator:
         file_extension = file_info.get('original_filename', '').split('.')[-1].lower()
         
         system_prompt = """You are an expert Python developer specializing in ETL processes with AWS S3 and Snowflake. 
-        Generate clean, production-ready Python code with proper error handling, logging, and best practices."""
+        Generate ONLY clean, production-ready Python code with proper error handling, logging, and best practices.
+        
+        IMPORTANT: Return ONLY executable Python code. Do not include any explanatory text, markdown formatting, 
+        or descriptions. Start directly with import statements or comments."""
         
         user_prompt = f"""
         Generate a complete Python ETL script with the following requirements:
@@ -95,22 +98,30 @@ class LLMCodeGenerator:
         2. Use snowflake-connector-python for Snowflake operations
         3. Use pandas for data manipulation
         4. Include proper error handling and logging
-        5. Use environment variables for credentials
+        5. Use environment variables for credentials (they will be injected automatically)
         6. Implement data validation and quality checks
         7. Add progress tracking for large files
         8. Include table creation with appropriate data types
         9. Handle different file formats appropriately
         10. Add documentation and comments
+        11. Use SNOWFLAKE_CONFIG dictionary for all Snowflake connections
+        12. Use AWS_CONFIG dictionary for all AWS connections
+
+        IMPORTANT CONFIGURATION NOTES:
+        - DO NOT hardcode credentials in the script
+        - Use SNOWFLAKE_CONFIG['account'], SNOWFLAKE_CONFIG['user'], etc.
+        - Use AWS_CONFIG['aws_access_key_id'], AWS_CONFIG['region_name'], etc.
+        - The configuration dictionaries will be automatically injected
+        - Always check CONFIG_VALID before proceeding with operations
 
         STRUCTURE THE CODE WITH:
         - Imports and setup
-        - Configuration and logging
+        - Configuration validation using provided CONFIG_VALID
         - Helper functions
         - Main ETL class
-        - Execution logic
-        - Error handling
+        - Execution logic with proper error handling
 
-        Please generate a complete, executable Python script.
+        Please generate a complete, executable Python script that uses the injected configuration.
         """
         
         try:
@@ -129,8 +140,11 @@ class LLMCodeGenerator:
         file_extension = file_info.get('original_filename', '').split('.')[-1].lower()
         
         system_prompt = """You are an expert Python developer specializing in ETL processes with AWS S3 and Snowflake. 
-        Generate clean, production-ready Python code with proper error handling, logging, and best practices.
-        Use the provided data profiling insights to optimize the ETL process."""
+        Generate ONLY clean, production-ready Python code with proper error handling, logging, and best practices.
+        Use the provided data profiling insights to optimize the ETL process.
+        
+        IMPORTANT: Return ONLY executable Python code. Do not include any explanatory text, markdown formatting, 
+        or descriptions. Start directly with import statements or comments."""
         
         # Base prompt
         user_prompt = f"""
@@ -232,10 +246,20 @@ class LLMCodeGenerator:
         10. Include comprehensive error handling and logging
         11. Add data quality monitoring and alerting
         12. Optimize for the identified data patterns
+        13. Use SNOWFLAKE_CONFIG dictionary for all Snowflake connections
+        14. Use AWS_CONFIG dictionary for all AWS connections
+        15. Always validate CONFIG_VALID before proceeding
+
+        IMPORTANT CONFIGURATION NOTES:
+        - DO NOT hardcode credentials in the script
+        - Use SNOWFLAKE_CONFIG and AWS_CONFIG dictionaries
+        - Configuration will be automatically injected by the workflow
+        - Check CONFIG_VALID flag before executing operations
+        - Implement graceful fallback for missing configuration
 
         STRUCTURE THE CODE WITH:
         - Imports and setup
-        - Configuration and logging  
+        - Configuration validation using provided CONFIG_VALID  
         - Data profiling utilities
         - Enhanced ETL class with profiling integration
         - Optimized table creation using profiling insights
@@ -243,7 +267,7 @@ class LLMCodeGenerator:
         - Main execution logic
         - Comprehensive error handling
 
-        Generate a complete, production-ready Python script that leverages all profiling insights.
+        Generate a complete, production-ready Python script that leverages all profiling insights and uses the injected configuration properly.
         """
         
         try:

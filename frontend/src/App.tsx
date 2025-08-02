@@ -21,7 +21,9 @@ import {
   FileCopy,
   Download,
   Storage,
-  Clear
+  Clear,
+  PlayArrow,
+  Settings
 } from '@mui/icons-material';
 import { useDropzone } from 'react-dropzone';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -135,6 +137,7 @@ const App: React.FC = () => {
   const [currentFile, setCurrentFile] = useState<FileInfo | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [isRunningWorkflow, setIsRunningWorkflow] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -270,6 +273,99 @@ const App: React.FC = () => {
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
+  };
+
+  const runWorkflow = async () => {
+    if (!currentFile || !inputMessage.trim()) {
+      setError('Please upload a file and provide requirements before running the workflow.');
+      return;
+    }
+
+    setIsRunningWorkflow(true);
+    setError(null);
+
+    try {
+      const workflowRequest = {
+        file_url: currentFile.s3_url,
+        file_name: currentFile.original_filename,
+        requirements: inputMessage,
+        auto_execute: true
+      };
+
+      const response = await axios.post('/etl-workflow', workflowRequest);
+
+      // Add workflow result message
+      const workflowMessage: Message = {
+        id: Date.now().toString(),
+        type: 'assistant',
+        content: formatWorkflowResponse(response.data),
+        timestamp: new Date()
+      };
+
+      setMessages(prev => [...prev, workflowMessage]);
+      setInputMessage(''); // Clear input after successful workflow
+
+    } catch (err: any) {
+      let errorMessage = 'Workflow execution failed. Please try again.';
+      
+      if (err.response?.data?.message) {
+        errorMessage = `Workflow failed: ${err.response.data.message}`;
+      } else if (err.response?.data?.detail) {
+        errorMessage = `Workflow failed: ${err.response.data.detail}`;
+      } else if (err.request) {
+        errorMessage = 'Workflow failed: Cannot connect to server. Make sure the backend is running on port 8000.';
+      } else {
+        errorMessage = `Workflow failed: ${err.message}`;
+      }
+      
+      setError(errorMessage);
+    } finally {
+      setIsRunningWorkflow(false);
+    }
+  };
+
+  const formatWorkflowResponse = (data: any): string => {
+    const parts = [
+      `🚀 **ETL Workflow Completed**`,
+      `**Workflow ID:** ${data.workflow_id || 'N/A'}`,
+      `**Success:** ${data.success ? '✅ Yes' : '❌ No'}`,
+      `**Timestamp:** ${new Date(data.timestamp).toLocaleString()}`
+    ];
+
+    if (data.script_path) {
+      parts.push(`**Script Generated:** ${data.script_path}`);
+    }
+
+    if (data.execution_success !== undefined) {
+      parts.push(`**Execution:** ${data.execution_success ? '✅ Success' : '❌ Failed'}`);
+    }
+
+    if (data.snowflake_success !== undefined) {
+      parts.push(`**Snowflake Ingestion:** ${data.snowflake_success ? '✅ Success' : '❌ Failed'}`);
+    }
+
+    if (data.records_inserted > 0) {
+      parts.push(`**Records Inserted:** ${data.records_inserted.toLocaleString()}`);
+    }
+
+    if (data.execution_output) {
+      parts.push(`\n**Execution Output:**\n\`\`\`\n${data.execution_output}\n\`\`\``);
+    }
+
+    if (data.errors && Object.values(data.errors).some(err => err)) {
+      parts.push(`\n**Errors:**`);
+      Object.entries(data.errors).forEach(([type, error]) => {
+        if (error) {
+          parts.push(`- ${type}: ${error}`);
+        }
+      });
+    }
+
+    if (data.summary) {
+      parts.push(`\n**Summary:**\n${data.summary}`);
+    }
+
+    return parts.join('\n');
   };
 
   const downloadCode = (code: string, filename: string = 'etl_code.py') => {
@@ -687,6 +783,27 @@ const App: React.FC = () => {
             >
               {isSending ? 'Sending...' : 'Send'}
             </Button>
+            {currentFile && (
+              <Button
+                variant="outlined"
+                startIcon={isRunningWorkflow ? <CircularProgress size={20} /> : <PlayArrow />}
+                onClick={runWorkflow}
+                disabled={!inputMessage.trim() || isRunningWorkflow || isSending}
+                sx={{ 
+                  minWidth: 140,
+                  height: 'fit-content',
+                  py: 1.5,
+                  borderColor: 'secondary.main',
+                  color: 'secondary.main',
+                  '&:hover': {
+                    borderColor: 'secondary.light',
+                    backgroundColor: 'rgba(255, 152, 0, 0.1)',
+                  }
+                }}
+              >
+                {isRunningWorkflow ? 'Running...' : 'Run Workflow'}
+              </Button>
+            )}
           </Box>
         </Box>
       </Paper>

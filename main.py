@@ -19,6 +19,7 @@ load_dotenv()
 
 from config import Config
 from llm_generator import LLMCodeGenerator
+from langgraph_etl_workflow import run_etl_workflow
 
 # Validate configuration
 if not Config.validate_config():
@@ -49,6 +50,24 @@ class ChatResponse(BaseModel):
     response: str
     etl_code: Optional[str] = None
     execution_status: Optional[str] = None
+
+class ETLWorkflowRequest(BaseModel):
+    file_url: str
+    file_name: str
+    requirements: str
+    auto_execute: Optional[bool] = True
+
+class ETLWorkflowResponse(BaseModel):
+    success: bool
+    workflow_id: Optional[str] = None
+    script_path: Optional[str] = None
+    execution_success: Optional[bool] = None
+    snowflake_success: Optional[bool] = None
+    records_inserted: Optional[int] = None
+    execution_output: Optional[str] = None
+    errors: Optional[Dict[str, str]] = None
+    summary: Optional[str] = None
+    timestamp: str
 
 # AWS S3 client
 try:
@@ -589,6 +608,113 @@ async def profile_data(request: dict):
     except Exception as e:
         print(f"Data profiling endpoint error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Data profiling failed: {str(e)}")
+
+@app.post("/etl-workflow", response_model=ETLWorkflowResponse)
+async def run_etl_workflow_endpoint(request: ETLWorkflowRequest):
+    """Run the complete ETL workflow using LangGraph"""
+    try:
+        print(f"🚀 Starting ETL workflow for file: {request.file_name}")
+        
+        # Prepare file info
+        file_info = {
+            "s3_url": request.file_url,
+            "original_filename": request.file_name,
+            "content_type": "application/octet-stream"
+        }
+        
+        # Get data profiling insights first if it's a CSV
+        profiling_data = None
+        if request.file_name.lower().endswith('.csv'):
+            try:
+                profiling_data = llm_generator.profile_data_from_s3(
+                    s3_url=request.file_url,
+                    bucket_name=Config.S3_BUCKET_NAME
+                )
+                print(f"📊 Data profiling completed: {profiling_data.get('success', False)}")
+            except Exception as e:
+                print(f"⚠️ Profiling failed, continuing without insights: {str(e)}")
+        
+        # Run the LangGraph workflow
+        workflow_result = run_etl_workflow(
+            file_info=file_info,
+            user_requirements=request.requirements,
+            profiling_data=profiling_data
+        )
+        
+        return ETLWorkflowResponse(
+            success=workflow_result["success"],
+            workflow_id=workflow_result.get("workflow_id"),
+            script_path=workflow_result.get("script_path"),
+            execution_success=workflow_result.get("execution_success"),
+            snowflake_success=workflow_result.get("snowflake_success"),
+            records_inserted=workflow_result.get("records_inserted"),
+            execution_output=workflow_result.get("execution_output"),
+            errors=workflow_result.get("errors"),
+            summary=workflow_result.get("summary"),
+            timestamp=workflow_result["timestamp"]
+        )
+        
+    except Exception as e:
+        error_msg = f"ETL workflow failed: {str(e)}"
+        print(f"❌ {error_msg}")
+        return ETLWorkflowResponse(
+            success=False,
+            errors={"workflow_error": error_msg},
+            timestamp=datetime.now().isoformat()
+        )
+
+@app.get("/workflow-status/{workflow_id}")
+async def get_workflow_status(workflow_id: str):
+    """Get the status of a specific workflow"""
+    try:
+        from pathlib import Path
+        scripts_dir = Path("generated_scripts")
+        log_file = scripts_dir / f"{workflow_id}_workflow_log.json"
+        
+        if log_file.exists():
+            with open(log_file, 'r') as f:
+                workflow_log = json.load(f)
+            return JSONResponse(content=workflow_log)
+        else:
+            raise HTTPException(status_code=404, detail="Workflow not found")
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get workflow status: {str(e)}")
+
+@app.get("/workflows")
+async def list_workflows():
+    """List all available workflows"""
+    try:
+        from pathlib import Path
+        scripts_dir = Path("generated_scripts")
+        
+        if not scripts_dir.exists():
+            return {"workflows": []}
+        
+        workflows = []
+        for log_file in scripts_dir.glob("*_workflow_log.json"):
+            try:
+                with open(log_file, 'r') as f:
+                    workflow_log = json.load(f)
+                    workflows.append({
+                        "workflow_id": workflow_log.get("workflow_id"),
+                        "timestamp": workflow_log.get("timestamp"),
+                        "status": workflow_log.get("status"),
+                        "execution_success": workflow_log.get("execution_success"),
+                        "snowflake_success": workflow_log.get("snowflake_table_created"),
+                        "records_inserted": workflow_log.get("snowflake_records_inserted", 0)
+                    })
+            except Exception as e:
+                print(f"Error reading workflow log {log_file}: {e}")
+                continue
+        
+        # Sort by timestamp (most recent first)
+        workflows.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
+        
+        return {"workflows": workflows}
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to list workflows: {str(e)}")
 
 @app.get("/health")
 async def health_check():
