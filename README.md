@@ -27,8 +27,8 @@ A modern, AI-powered ETL (Extract, Transform, Load) platform that combines LLM-d
                        ┌────────┗──────────┐              ┃
                        ▼                   ▼              ▼
                ┌──────────────┐  ┌──────────────┐  ┌──────────────┐
-               │   AWS S3     │  │   Snowflake   │  │  Generated   │
-               │   Storage    │  │   Database    │  │  Python      │
+               │   AWS S3     │  │   Snowflake  │  │  Generated   │
+               │   Storage    │  │   Database   │  │  Python      │
                └──────────────┘  └──────────────┘  │  Scripts     │
                                                    └──────────────┘
                                                            ┃
