@@ -1,22 +1,3 @@
-// src/App.tsx
-// Fixes:
-// 1) "Chat" shows conversation only; "Code" shows only the latest ETL code.
-// 2) After you click Run Workflow, the "Profiling" and "Workflow" tabs are populated from the
-//    /etl-workflow response and can be revisited any time.
-//
-// Assumed backend fields (graceful fallbacks if missing):
-//   /chat -> { response: string, etl_code?: string }
-//   /etl-workflow -> {
-//      workflow_id, success, timestamp, script_path?, execution_success?, snowflake_success?,
-//      records_inserted?, execution_output?, errors?, summary?, etl_code?, script_content?, generated_code?,
-//      profiling?: {
-//        columns?: Array<{ name: string; dtype?: string; nulls?: number; distinct?: number; min?: any; max?: any; mean?: number }>,
-//        primary_key_candidates?: string[],
-//        date_columns?: string[]
-//      },
-//      dag?: Array<{ step: string; status?: string; note?: string }>
-//   }
-
 import React, { useEffect, useRef, useState } from "react";
 import {
   AppBar, Toolbar, Typography, Box, Paper, List, ListItemButton, ListItemIcon,
