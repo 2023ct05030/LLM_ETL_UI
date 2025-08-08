@@ -6,6 +6,7 @@ import boto3
 import os
 import uuid
 import json
+import glob
 from datetime import datetime
 from typing import Optional, Dict, Any
 from pydantic import BaseModel
@@ -746,6 +747,42 @@ async def get_config():
         "nova_model": Config.NOVA_MODEL_ID,
         "environment": Config.ENVIRONMENT
     }
+
+@app.get("/latest-script")
+async def get_latest_script():
+    """Get the latest generated ETL script from the generated_scripts folder"""
+    try:
+        # Find all ETL script files in the generated_scripts directory
+        script_pattern = os.path.join("generated_scripts", "etl_*_etl_script.py")
+        script_files = glob.glob(script_pattern)
+        
+        if not script_files:
+            raise HTTPException(status_code=404, detail="No generated scripts found")
+        
+        # Sort by modification time to get the latest file
+        latest_script = max(script_files, key=os.path.getmtime)
+        
+        # Read the script content
+        try:
+            async with aiofiles.open(latest_script, 'r', encoding='utf-8') as f:
+                script_content = await f.read()
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to read script file: {str(e)}")
+        
+        # Extract filename from path
+        filename = os.path.basename(latest_script)
+        
+        return {
+            "script_content": script_content,
+            "filename": filename,
+            "file_path": latest_script,
+            "last_modified": datetime.fromtimestamp(os.path.getmtime(latest_script)).isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve latest script: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn
