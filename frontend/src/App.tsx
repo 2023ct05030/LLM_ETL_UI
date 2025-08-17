@@ -5,7 +5,7 @@ import {
   Tooltip, CircularProgress, TextField, Table, TableHead, TableBody, TableRow, TableCell,
 } from "@mui/material";
 import {
-  CloudUpload, Chat as ChatIcon, Code as CodeIcon, Insights, Route,
+  CloudUpload, Chat as ChatIcon, Code as CodeIcon, Route,
   Brightness2, Settings, FileCopy, Download, Storage, Clear, PlayArrow, Send, Refresh,
 } from "@mui/icons-material";
 import { useDropzone } from "react-dropzone";
@@ -17,7 +17,7 @@ import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 
 axios.defaults.baseURL = process.env.REACT_APP_API_URL || "http://localhost:8000";
 
-type Tab = "upload" | "chat" | "code" | "profiling" | "workflow";
+type Tab = "upload" | "chat" | "code" | "workflow";
 
 interface Message {
   id: string;
@@ -313,10 +313,10 @@ const App: React.FC = () => {
       // Add navigation instructions
       parts.push("\n📋 Navigation Guide:");
       parts.push("• View this summary and execution details in the 'Workflow' tab");
-      if (data.profiling && (data.profiling.columns?.length || data.profiling.primary_key_candidates?.length || data.profiling.date_columns?.length)) {
-        parts.push("• Check data profiling, schema analysis, and column statistics in the 'Profiling' tab");
-      }
       parts.push("• Find the generated ETL code in the 'Code' tab");
+        if (data.profiling && (data.profiling.columns?.length || data.profiling.primary_key_candidates?.length || data.profiling.date_columns?.length)) {
+          parts.push("• Check data profiling, schema analysis, and column statistics in the 'Profiling' tab");
+        }
       
       setMessages((prev) => [
         ...prev,
@@ -462,10 +462,6 @@ const App: React.FC = () => {
             <ListItemButton selected={tab === "code"} onClick={() => setTab("code")} sx={{ borderRadius: 2 }}>
               <ListItemIcon><CodeIcon sx={{ color: tab === "code" ? "cyan.300" : "rgba(255,255,255,0.6)" }} /></ListItemIcon>
               <ListItemText primary="Code" />
-            </ListItemButton>
-            <ListItemButton selected={tab === "profiling"} onClick={() => setTab("profiling")} sx={{ borderRadius: 2 }}>
-              <ListItemIcon><Insights sx={{ color: tab === "profiling" ? "cyan.300" : "rgba(255,255,255,0.6)" }} /></ListItemIcon>
-              <ListItemText primary="Profiling" />
             </ListItemButton>
             <ListItemButton selected={tab === "workflow"} onClick={() => setTab("workflow")} sx={{ borderRadius: 2 }}>
               <ListItemIcon><Route sx={{ color: tab === "workflow" ? "cyan.300" : "rgba(255,255,255,0.6)" }} /></ListItemIcon>
@@ -723,111 +719,7 @@ const App: React.FC = () => {
             </Paper>
           )}
 
-          {/* PROFILING pane (populated after workflow) */}
-          {tab === "profiling" && (
-            <Paper elevation={0} sx={{ mt: 2, p: 3, bgcolor: "rgba(2,6,23,0.6)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 3 }}>
-              <Typography variant="h5" sx={{ mb: 1, fontWeight: 600 }}>Data Profiling</Typography>
-              {!profiling ? (
-                <Typography sx={{ opacity: 0.7 }}>Run the workflow to see inferred schema and column statistics.</Typography>
-              ) : (
-                <>
-                  {/* Data Profile Summary */}
-                  <Box sx={{ mb: 3, p: 2, bgcolor: "rgba(56,189,248,0.08)", border: "1px solid rgba(56,189,248,0.25)", borderRadius: 2 }}>
-                    <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, color: "primary.light" }}>📊 Data Profile Summary</Typography>
-                    <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)" }, gap: 1.5 }}>
-                      <Typography sx={{ fontSize: "0.95rem" }}>
-                        <strong>Rows:</strong> {profiling.total_rows ?? (profiling.columns?.[0]?.nulls !== undefined ? "Available in columns" : "N/A")}
-                      </Typography>
-                      <Typography sx={{ fontSize: "0.95rem" }}>
-                        <strong>Columns:</strong> {profiling.columns?.length ?? 0}
-                      </Typography>
-                      <Typography sx={{ fontSize: "0.95rem" }}>
-                        <strong>Data Quality:</strong> {profiling.data_quality ?? "N/A"}
-                      </Typography>
-                      <Typography sx={{ fontSize: "0.95rem" }}>
-                        <strong>Primary Key Candidates:</strong> {profiling.primary_key_candidates?.join(", ") ?? "None"}
-                      </Typography>
-                      <Typography sx={{ fontSize: "0.95rem", gridColumn: { sm: "1 / -1" } }}>
-                        <strong>Date/Time Columns:</strong> {profiling.date_columns?.join(", ") ?? "None"}
-                      </Typography>
-                    </Box>
-                  </Box>
-
-                  {profiling.primary_key_candidates?.length ? (
-                    <Box sx={{ mb: 2 }}>
-                      <Typography sx={{ mb: 1, fontWeight: 600, color: "primary.light" }}>🔑 Primary Key Candidates</Typography>
-                      <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
-                        {profiling.primary_key_candidates.map((c) => (
-                          <Chip key={c} label={c} size="small" color="primary" variant="outlined" sx={{ mr: 1, mb: 1 }} />
-                        ))}
-                      </Box>
-                    </Box>
-                  ) : (
-                    <Box sx={{ mb: 2 }}>
-                      <Typography sx={{ mb: 1, fontWeight: 600, color: "text.secondary" }}>🔑 Primary Key Candidates</Typography>
-                      <Typography sx={{ opacity: 0.7, fontSize: "0.875rem" }}>No unique key candidates detected</Typography>
-                    </Box>
-                  )}
-
-                  {profiling.date_columns?.length ? (
-                    <Box sx={{ mb: 2 }}>
-                      <Typography sx={{ mb: 1, fontWeight: 600, color: "primary.light" }}>📅 Date Columns</Typography>
-                      <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
-                        {profiling.date_columns.map((c) => (
-                          <Chip key={c} label={c} size="small" color="secondary" variant="outlined" sx={{ mr: 1, mb: 1 }} />
-                        ))}
-                      </Box>
-                    </Box>
-                  ) : (
-                    <Box sx={{ mb: 2 }}>
-                      <Typography sx={{ mb: 1, fontWeight: 600, color: "text.secondary" }}>📅 Date Columns</Typography>
-                      <Typography sx={{ opacity: 0.7, fontSize: "0.875rem" }}>No date/timestamp columns detected</Typography>
-                    </Box>
-                  )}
-
-                  {profiling.columns?.length ? (
-                    <Box sx={{ mt: 1 }}>
-                      <Typography sx={{ fontWeight: 600, mb: 1 }}>Column Statistics</Typography>
-                      <Table size="small" sx={{ borderColor: "rgba(255,255,255,0.08)" }}>
-                        <TableHead>
-                          <TableRow>
-                            <TableCell sx={{ color: "white", fontWeight: 600 }}>Column</TableCell>
-                            <TableCell sx={{ color: "white", fontWeight: 600 }}>Type</TableCell>
-                            <TableCell sx={{ color: "white", fontWeight: 600 }} align="right">Nulls</TableCell>
-                            <TableCell sx={{ color: "white", fontWeight: 600 }} align="right">Distinct</TableCell>
-                            <TableCell sx={{ color: "white", fontWeight: 600 }} align="right">Min</TableCell>
-                            <TableCell sx={{ color: "white", fontWeight: 600 }} align="right">Max</TableCell>
-                            <TableCell sx={{ color: "white", fontWeight: 600 }} align="right">Mean</TableCell>
-                          </TableRow>
-                        </TableHead>
-                        <TableBody>
-                          {profiling.columns.map((col) => (
-                            <TableRow key={col.name} sx={{ '&:nth-of-type(odd)': { bgcolor: 'rgba(255,255,255,0.02)' } }}>
-                              <TableCell sx={{ color: "rgba(255,255,255,0.9)", fontWeight: 500 }}>{col.name}</TableCell>
-                              <TableCell sx={{ color: "rgba(255,255,255,0.8)" }}>{col.dtype ?? "-"}</TableCell>
-                              <TableCell sx={{ color: "rgba(255,255,255,0.8)" }} align="right">{col.nulls ?? "-"}</TableCell>
-                              <TableCell sx={{ color: "rgba(255,255,255,0.8)" }} align="right">{col.distinct ?? "-"}</TableCell>
-                              <TableCell sx={{ color: "rgba(255,255,255,0.8)" }} align="right">
-                                {col.min !== undefined && col.min !== null ? String(col.min) : "-"}
-                              </TableCell>
-                              <TableCell sx={{ color: "rgba(255,255,255,0.8)" }} align="right">
-                                {col.max !== undefined && col.max !== null ? String(col.max) : "-"}
-                              </TableCell>
-                              <TableCell sx={{ color: "rgba(255,255,255,0.8)" }} align="right">
-                                {col.mean !== undefined && col.mean !== null ? (typeof col.mean === 'number' ? col.mean.toFixed(2) : String(col.mean)) : "-"}
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </Box>
-                  ) : (
-                    <Typography sx={{ opacity: 0.7 }}>No column stats provided by backend.</Typography>
-                  )}
-                </>
-              )}
-            </Paper>
-          )}
+          {/* Profiling pane removed */}
 
           {/* WORKFLOW pane (populated after workflow) */}
           {tab === "workflow" && (
